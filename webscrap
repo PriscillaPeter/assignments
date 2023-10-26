@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+#Assignment 8 : BeautifulSoup Web Scraper
+# Priscilla Peter
+import requests
+from bs4 import BeautifulSoup
+
+# Define the URL to scrape
+url = "https://www.boxofficemojo.com/weekend/chart/"
+
+# Send an HTTP get request to the URL
+response = requests.get(url)
+
+if response:
+    soup = BeautifulSoup(response.content, "html.parser")
+
+    # Extract the date range for the site
+    date_range = soup.find("h1").text
+
+    # Initialize lists for statistics
+    debut_movies = []
+    biggest_debut = None
+    weakest_debut = None
+    biggest_gain = None
+    biggest_loss = None
+    most_weeks_released = []
+    distributors = {}
+
+    # Find table containing movie data
+    table = soup.find("table")
+
+    # Initialize a list to store movie data
+    movie_data = []
+
+    for row in table.find_all("tr")[1:]:
+        columns = row.find_all("td")
+        rank = columns[0].text.strip()
+        last_week_rank = columns[1].text.strip()
+        title = columns[2].text.strip()
+        current_week_gross = columns[3].text.strip()
+        total_gross = columns[8].text.strip()  
+        weeks_in_release = columns[9].text.strip()
+      
+        # Process and append the movie data with spaces between columns
+        movie_data.append(f"{rank}  {last_week_rank}  {title}  {current_week_gross}  {total_gross}  {weeks_in_release}")
+
+        # Check if it's a debut movie
+        if last_week_rank == "-":
+            debut_movies.append(title)
+
+        # Update statistics
+        if not biggest_debut or rank < biggest_debut[1]:
+            biggest_debut = (title, rank)
+        if not weakest_debut or rank > weakest_debut[1]:
+            weakest_debut = (title, rank)
+        if rank == last_week_rank:
+            if not biggest_gain or rank < biggest_gain[1]:
+                biggest_gain = (title, rank)
+            if not biggest_loss or rank > biggest_loss[1]:
+                biggest_loss = (title, rank)
+
+        # Update weeks in release
+        most_weeks_released.append((title, weeks_in_release))
+
+        # Update distributor counts
+        distributor = columns[10].text.strip()
+        distributors[distributor] = distributors.get(distributor, 0) + 1
+
+    # Output the movie data with spaces between columns
+    print(f"Movie information for {date_range}:\n")
+    for movie in movie_data:
+        print(movie)
+
+    # Output Second statistics
+    print(f"\nThere were {len(debut_movies)} debuts this week!")
+    print(f"Biggest debut was {biggest_debut[0]} ({biggest_debut[1]})")
+    print(f"Weakest debut was {weakest_debut[0]} ({weakest_debut[1]})")
+    print(f"Biggest gain this week was {biggest_gain[0]} ({biggest_gain[1]} places)")
+    print(f"Biggest loss this week was {biggest_loss[0]} (-{biggest_loss[1]} places)")
+
+    # Find movies with the most weeks in release
+    most_weeks_released.sort(key=lambda x: int(x[1]), reverse=True)
+    most_weeks = most_weeks_released[0][1]
+    most_week_movies = [f"{movie} ({weeks} weeks)" for movie, weeks in most_weeks_released if weeks == most_weeks]
+    print(f"Most weeks released was {', '.join(most_week_movies)}")
+
+    # Find distributors with the most movies
+    max_movies = max(distributors.values())
+    top_distributors = [distributor for distributor, count in distributors.items() if count == max_movies]
+
+    # Create a list of distributor information strings
+    distributor_info = [f"{distributor} ({count} movies)" for distributor, count in distributors.items() if count == max_movies]
+
+    # Print the distributor information
+    print(f"Distributor(s) with the most movies was/were {', '.join(distributor_info)}")
+
+else:
+    print("Failed to retrieve the page. Status code:", response.status_code)
